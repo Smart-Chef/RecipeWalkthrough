@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+RecipeWalkthrough
 
 # Test binary, build with `go test -c`
 *.test
