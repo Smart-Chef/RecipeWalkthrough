@@ -1,107 +1,83 @@
 package main
 
 import (
-	"database/sql"
-	"fmt"
-	"log"
+	"context"
+	"net/http"
 	"os"
+	"os/signal"
+	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
-	os.Remove("./foo.db")
+	// Setup logger
+	Formatter := new(log.TextFormatter)
+	Formatter.TimestampFormat = "02-01-2006 15:04:05"
+	Formatter.FullTimestamp = true
+	log.SetFormatter(Formatter)
 
-	db, err := sql.Open("sqlite3", "./foo.db")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
+	// Setup Mux
+	r := mux.NewRouter()
+	var wait time.Duration
 
-	sqlStmt := `
-	create table foo (id integer not null primary key, name text);
-	delete from foo;
-	`
-	_, err = db.Exec(sqlStmt)
-	if err != nil {
-		log.Printf("%q: %s\n", err, sqlStmt)
-		return
+	// Log endpoints Method + URI
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// https://golang.org/pkg/net/http/#Request
+			log.Info(r.Method + " " + r.RequestURI)
+			// Call the next handler, which can be another middleware in the chain, or the final handler.
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// Route handles & endpoints
+	CreateRoutes(r, AllRoutes[:], "/api")
+
+	// Walk all the routes
+	r.Walk(RouteWalker)
+
+	// Start server
+	srv := &http.Server{
+		Handler: r,
+		Addr:    ":8001",
+		// Good practice to set timeouts to avoid Slowloris attacks.
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
-	tx, err := db.Begin()
-	if err != nil {
-		log.Fatal(err)
-	}
-	stmt, err := tx.Prepare("insert into foo(id, name) values(?, ?)")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer stmt.Close()
-	for i := 0; i < 100; i++ {
-		_, err = stmt.Exec(i, fmt.Sprintf("こんにちわ世界%03d", i))
-		if err != nil {
+	// Run the state machine
+	//go func() {
+	//	if err := srv.ListenAndServe(); err != nil {
+	//		log.Fatal(err)
+	//	}
+	//}()
+	// Run our server in a goroutine so that it doesn't block.
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
-	}
-	tx.Commit()
+	}()
 
-	rows, err := db.Query("select id, name from foo")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id int
-		var name string
-		err = rows.Scan(&id, &name)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(id, name)
-	}
-	err = rows.Err()
-	if err != nil {
-		log.Fatal(err)
-	}
+	c := make(chan os.Signal, 1)
+	// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
+	// SIGKILL, SIGQUIT or SIGTERM (Ctrl+/) will not be caught.
+	signal.Notify(c, os.Interrupt)
 
-	stmt, err = db.Prepare("select name from foo where id = ?")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer stmt.Close()
-	var name string
-	err = stmt.QueryRow("3").Scan(&name)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(name)
+	// Block until we receive our signal.
+	<-c
 
-	_, err = db.Exec("delete from foo")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	_, err = db.Exec("insert into foo(id, name) values(1, 'foo'), (2, 'bar'), (3, 'baz')")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	rows, err = db.Query("select id, name from foo")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id int
-		var name string
-		err = rows.Scan(&id, &name)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(id, name)
-	}
-	err = rows.Err()
-	if err != nil {
-		log.Fatal(err)
-	}
+	// Create a deadline to wait for.
+	ctx, cancel := context.WithTimeout(context.Background(), wait)
+	defer cancel()
+	// Doesn't block if no connections, but will otherwise wait
+	// until the timeout deadline.
+	srv.Shutdown(ctx)
+	// Optionally, you could run srv.Shutdown in a goroutine and block on
+	// <-ctx.Done() if your application should wait for other services
+	// to finalize based on context cancellation.
+	//Info.Println("shutting down")
+	os.Exit(0)
 }

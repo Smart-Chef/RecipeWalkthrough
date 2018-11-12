@@ -1,3 +1,6 @@
 module recipe-walkthrough
 
-require github.com/mattn/go-sqlite3 v1.9.0
+require (
+	github.com/gorilla/mux v1.6.2
+	github.com/sirupsen/logrus v1.2.0
+)
