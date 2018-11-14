@@ -74,6 +74,40 @@ var AllRoutes = [...]Endpoint{
 		methods: map[string]http.Handler{
 			http.MethodPost: InitRecipe,
 		},
+	}, {
+		path: "/recipes",
+		methods: map[string]http.Handler{
+			http.MethodGet: GetRecipes,
+		},
+		subRoutes: []Endpoint{
+			{
+				path: "/{id}",
+				methods: map[string]http.Handler{
+					http.MethodGet: GetRecipeByID,
+				},
+				subRoutes: []Endpoint{
+					{
+						path: "/ingredients",
+						methods: map[string]http.Handler{
+							http.MethodGet: GetRecipeIngredients,
+						},
+						subRoutes: []Endpoint{
+							{
+								path: "/step/{step_number}",
+								methods: map[string]http.Handler{
+									http.MethodGet: GetRecipeStepIngredients,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, {
+		path: "/ingredients",
+		methods: map[string]http.Handler{
+			http.MethodGet: GetIngredients,
+		},
 	},
 }
 
