@@ -14,6 +14,9 @@ SELECT
   Step.data,
   Step.step_number,
   Step.created_at,
+  Trigger_Group.id as 'trigger_group_id',
+  Trigger_Group.action_params,
+  Trigger_Group.action_key,
   Trigger.id,
   Trigger.action_params,
   Trigger.action,
@@ -31,20 +34,14 @@ FROM Recipe
 LEFT JOIN Step ON Step.recipe_fk = Recipe.id
 LEFT JOIN Step_Ingredient ON Step_Ingredient.step_fk = Step.id
 LEFT JOIN Ingredient ON Ingredient.id = Step_Ingredient.ingredient_fk
-LEFT JOIN Trigger on Step.id = Trigger.step_fk
+LEFT JOIN Trigger_Group ON Step.id = Trigger_Group.step_fk
+LEFT JOIN Trigger on Trigger_Group.id = Trigger.trigger_group_fk
 LEFT JOIN Trigger_Type on Trigger.tigger_type_fk = Trigger_Type.id
 LEFT JOIN Step_Utensil on Step.id = Step_Utensil.step_fk
 LEFT JOIN Utensil U on Step_Utensil.utensil_fk = U.id;
 
-
-
 -- name: something else
--- select Recipe.*
--- from Recipe
--- inner join Recipe_Ingredient on Recipe_Ingredient.recipe_fk = Recipe.id
--- inner join Ingredient on Ingredient.id = recipe_fk;
 SELECT id, title, created_at FROM Recipe;
-
 
 -- name: find-one-recipe-by-id
 SELECT id, title, created_at FROM Recipe WHERE id = ? LIMIT 1;
@@ -77,3 +74,30 @@ LEFT JOIN Step_Ingredient SI on Ingredient.id = SI.ingredient_fk
 LEFT JOIN Step S on SI.step_fk = S.id
 WHERE S.recipe_fk = ? AND S.step_number = ?
 ORDER BY Ingredient.name ASC;
+
+--name: get-all-utensils
+SELECT
+DISTINCT Utensil.id,
+Utensil.name,
+Utensil.created_at
+FROM Utensil;
+
+--name: get-recipe-utensil-by-recipe-id
+SELECT
+DISTINCT Utensil.id,
+Utensil.name,
+Utensil.created_at
+FROM Utensil
+LEFT JOIN Step_Utensil S on Utensil.id = S.utensil_fk
+LEFT JOIN Step S2 on S.step_fk = S2.id
+WHERE S2.recipe_fk = ?;
+
+--name: get-recipe-utensils-by-recipe-step-number
+SELECT
+DISTINCT Utensil.id,
+Utensil.name,
+Utensil.created_at
+FROM Utensil
+LEFT JOIN Step_Utensil S on Utensil.id = S.utensil_fk
+LEFT JOIN Step S2 on S.step_fk = S2.id
+WHERE S2.recipe_fk = ? AND S2.id = ?;

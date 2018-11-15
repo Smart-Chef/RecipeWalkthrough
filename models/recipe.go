@@ -20,7 +20,9 @@ type Recipe struct {
 	stepsMap            map[int]*Step           `json:"-"`
 }
 
+// GetAll Recipes and related data
 func (*Recipe) GetAll(db *sql.DB, dot *dotsql.DotSql) []*Recipe {
+	// Execute the query for the data
 	rows, err := dot.Query(db, "get-all-recipes")
 	defer rows.Close()
 
@@ -28,89 +30,132 @@ func (*Recipe) GetAll(db *sql.DB, dot *dotsql.DotSql) []*Recipe {
 		log.Error("Error with query for GetRecipes")
 	}
 
+	// Initialize the data structures to store the recipes
 	recipes := make([]*Recipe, 0)
 	recipesMap := make(map[int]*Recipe)
 
+	// Loop through the results
 	for rows.Next() {
 		var recipe Recipe
 		var ri StepIngredient
 		var ingredient Ingredient
 		var step Step
+		var triggerGroup TriggerGroup
 		var trigger Trigger
 		var triggerType TriggerType
 		var utensil Utensil
 
-		err := rows.Scan(&recipe.ID, &recipe.Title, &recipe.CreatedAt, &ri.ID, &ri.Quantity, &ri.Unit, &ri.CreatedAt, &ingredient.ID, &ingredient.Name, &ingredient.CreatedAt, &step.ID, &step.Data, &step.StepNumber, &step.CreatedAt, &trigger.ID, &trigger.ActionParams, &trigger.Action, &trigger.Service, &trigger.TriggerParams, &trigger.CreatedAt, &triggerType.ID, &triggerType.CreatedAt, &triggerType.Key, &triggerType.SensorType, &utensil.ID, &utensil.Name, &utensil.CreatedAt)
+		// Scan the row for all the data
+		err := rows.Scan(
+			&recipe.ID, &recipe.Title, &recipe.CreatedAt,
+			&ri.ID, &ri.Quantity, &ri.Unit, &ri.CreatedAt,
+			&ingredient.ID, &ingredient.Name, &ingredient.CreatedAt,
+			&step.ID, &step.Data, &step.StepNumber, &step.CreatedAt,
+			&triggerGroup.ID, &triggerGroup.ActionParams, &triggerGroup.ActionKey,
+			&trigger.ID, &trigger.ActionParams, &trigger.Action, &trigger.Service, &trigger.TriggerParams,
+			&trigger.CreatedAt, &triggerType.ID, &triggerType.CreatedAt, &triggerType.Key, &triggerType.SensorType,
+			&utensil.ID, &utensil.Name, &utensil.CreatedAt,
+		)
+
+		// Continue to the next row if there is an error fetching the data
 		if err != nil {
 			log.Error(err.Error())
+			continue
+		}
+
+		r, ok := recipesMap[recipe.ID]
+		ri.Recipe = nil
+		ri.Ingredient = &ingredient
+		trigger.TriggerType = &triggerType
+
+		if !ok {
+			r = &recipe
+
+			// Initialize the maps
+			r.stepsMap = make(map[int]*Step)
+			r.recipeIngredientMap = make(map[int]*StepIngredient)
+			step.triggerGroupMap = make(map[null.Int]*TriggerGroup)
+			step.utensilMap = make(map[null.Int]*Utensil)
+			step.triggerGroupMap = make(map[null.Int]*TriggerGroup)
+			triggerGroup.triggerMap = make(map[null.Int]*Trigger)
+
+			// Add triggerGroup + trigger if valid trigger
+			if triggerGroup.ID.Valid && trigger.ID.Valid {
+				triggerGroup.triggerMap[trigger.ID] = &trigger
+				triggerGroup.Triggers = []*Trigger{&trigger}
+				step.triggerGroupMap[triggerGroup.ID] = &triggerGroup
+				step.TriggerGroups = append(step.TriggerGroups, &triggerGroup)
+			}
+
+			// Add utensil if valid
+			if utensil.ID.Valid {
+				step.utensilMap[utensil.ID] = &utensil
+				step.Utensils = []*Utensil{&utensil}
+			}
+
+			// Add the Recipe Ingredient
+			r.RecipeIngredients = []*StepIngredient{&ri}
+			r.recipeIngredientMap[ri.ID] = &ri
+
+			// Add the step
+			r.Steps = []*Step{&step}
+			r.stepsMap[step.ID] = &step
+
+			// Add the recipe to the list and map of recipes
+			recipesMap[r.ID] = r
+			recipes = append(recipes, r)
 		} else {
-			r, ok := recipesMap[recipe.ID]
-			ri.Recipe = nil
-			ri.Ingredient = &ingredient
-			trigger.TriggerType = &triggerType
-
+			// If the recipe has already initialized, add any new data to the recipe
+			// Add if a new recipeIngredient
+			_, ok := r.recipeIngredientMap[ri.ID]
 			if !ok {
-				r = &recipe
-				r.stepsMap = make(map[int]*Step)
-				r.recipeIngredientMap = make(map[int]*StepIngredient)
-				step.triggerMap = make(map[null.Int]*Trigger)
-				step.utensilMap = make(map[null.Int]*Utensil)
-
-				if trigger.ID.Valid {
-					step.triggerMap[trigger.ID] = &trigger
-					step.Triggers = []*Trigger{&trigger}
-				}
-
-				if utensil.ID.Valid {
-					step.utensilMap[utensil.ID] = &utensil
-					step.Utensils = []*Utensil{&utensil}
-				}
-
-				r.RecipeIngredients = []*StepIngredient{&ri}
-				r.Steps = []*Step{&step}
-				recipesMap[r.ID] = r
-				recipes = append(recipes, r)
-				r.stepsMap[step.ID] = &step
 				r.recipeIngredientMap[ri.ID] = &ri
-			} else {
-				_, ok := r.recipeIngredientMap[ri.ID]
-				if !ok {
-					r.recipeIngredientMap[ri.ID] = &ri
-					r.RecipeIngredients = append(r.RecipeIngredients, &ri)
-				}
+				r.RecipeIngredients = append(r.RecipeIngredients, &ri)
+			}
 
-				_, ok = r.stepsMap[step.ID]
-				if !ok {
-					r.stepsMap[step.ID] = &step
-					r.Steps = append(r.Steps, &step)
-					r.stepsMap[step.ID].triggerMap = make(map[null.Int]*Trigger)
-					r.stepsMap[step.ID].utensilMap = make(map[null.Int]*Utensil)
-				}
+			// Add if a new step
+			_, ok = r.stepsMap[step.ID]
+			if !ok {
+				r.stepsMap[step.ID] = &step
+				r.Steps = append(r.Steps, &step)
+				r.stepsMap[step.ID].triggerGroupMap = make(map[null.Int]*TriggerGroup)
+				r.stepsMap[step.ID].utensilMap = make(map[null.Int]*Utensil)
+			}
 
-				_, ok = r.stepsMap[step.ID].triggerMap[trigger.ID]
+			// Add if a new TriggerGroup
+			_, ok = r.stepsMap[step.ID].triggerGroupMap[triggerGroup.ID]
+			if !ok && triggerGroup.ID.Valid {
+				r.stepsMap[step.ID].triggerGroupMap[triggerGroup.ID] = &triggerGroup
+				r.stepsMap[step.ID].TriggerGroups = append(r.stepsMap[step.ID].TriggerGroups, &triggerGroup)
+				r.stepsMap[step.ID].triggerGroupMap[triggerGroup.ID].triggerMap = make(map[null.Int]*Trigger)
+			}
+
+			// Add if a new trigger and a valid TriggerGroup
+			if triggerGroup.ID.Valid {
+				_, ok = r.stepsMap[step.ID].triggerGroupMap[triggerGroup.ID].triggerMap[trigger.ID]
 				if !ok && trigger.ID.Valid {
-					r.stepsMap[step.ID].triggerMap[trigger.ID] = &trigger
-					r.stepsMap[step.ID].Triggers = append(r.stepsMap[step.ID].Triggers, &trigger)
+					tG, _ := r.stepsMap[step.ID].triggerGroupMap[triggerGroup.ID]
+					tG.triggerMap[trigger.ID] = &trigger
+					tG.Triggers = append(tG.Triggers, &trigger)
 				}
+			}
 
-				_, ok = r.stepsMap[step.ID].utensilMap[utensil.ID]
-
-				if !ok && utensil.ID.Valid {
-					r.stepsMap[step.ID].utensilMap[utensil.ID] = &utensil
-					r.stepsMap[step.ID].Utensils = append(r.stepsMap[step.ID].Utensils, &utensil)
-				}
+			// Add if a new Utensil
+			_, ok = r.stepsMap[step.ID].utensilMap[utensil.ID]
+			if !ok && utensil.ID.Valid {
+				r.stepsMap[step.ID].utensilMap[utensil.ID] = &utensil
+				r.stepsMap[step.ID].Utensils = append(r.stepsMap[step.ID].Utensils, &utensil)
 			}
 		}
 	}
 	return recipes
 }
 
-func (*Recipe) GetByID(db *sql.DB, dot *dotsql.DotSql, id string) (*Recipe, bool) {
-	var recipe Recipe
+func (r *Recipe) GetByID(db *sql.DB, dot *dotsql.DotSql, id string) (*Recipe, bool) {
 	row, _ := dot.QueryRow(db, "find-one-recipe-by-id", id)
-	if err := row.Scan(&recipe.ID, &recipe.Title, &recipe.CreatedAt); err != nil {
+	if err := row.Scan(&r.ID, &r.Title, &r.CreatedAt); err != nil {
 		log.Error(err.Error())
 		return nil, false
 	}
-	return &recipe, true
+	return r, true
 }

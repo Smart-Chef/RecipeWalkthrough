@@ -100,6 +100,20 @@ var AllRoutes = [...]Endpoint{
 							},
 						},
 					},
+					{
+						path: "/utensils",
+						methods: map[string]http.Handler{
+							http.MethodGet: GetRecipeUtensils,
+						},
+						subRoutes: []Endpoint{
+							{
+								path: "/step/{step_number}",
+								methods: map[string]http.Handler{
+									http.MethodGet: GetUtensilStepIngredients,
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -107,6 +121,11 @@ var AllRoutes = [...]Endpoint{
 		path: "/ingredients",
 		methods: map[string]http.Handler{
 			http.MethodGet: GetIngredients,
+		},
+	}, {
+		path: "/utensils",
+		methods: map[string]http.Handler{
+			http.MethodGet: GetUtensils,
 		},
 	},
 }

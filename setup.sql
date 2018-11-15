@@ -54,6 +54,19 @@ create table Step_Ingredient
 )
 ;
 
+create table Trigger_Group
+(
+	id integer
+		primary key
+		 autoincrement,
+	step_fk integer
+		constraint step__fk
+			references Step,
+	action_params varchar,
+	action_key varchar
+)
+;
+
 create table Trigger_Type
 (
 	id integer
@@ -73,12 +86,14 @@ create table Trigger
 	tigger_type_fk integer
 		constraint trigger_type__fk
 			references Trigger_Type,
-	step_fk integer,
 	service varchar,
 	created_at datetime default CURRENT_TIMESTAMP,
 	action_params varchar,
 	action varchar,
-	trigger_params varchar
+	trigger_params varchar,
+	trigger_group_fk integer
+		constraint trigger_group__fk
+			references Trigger_Group
 )
 ;
 
@@ -103,8 +118,6 @@ create table Step_Utensil
 	step_fk int
 		constraint step__fk
 			references Step,
-  created_at datetime default CURRENT_TIMESTAMP
+	created_at datetime default CURRENT_TIMESTAMP
 )
 ;
-
-

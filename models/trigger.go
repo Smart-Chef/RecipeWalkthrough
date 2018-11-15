@@ -21,3 +21,11 @@ type TriggerType struct {
 	Triggers   []*Trigger  `json:"triggers,omitempty"`
 	CreatedAt  null.Time   `json:"created_at"`
 }
+
+type TriggerGroup struct {
+	ID           null.Int              `json:"id"`
+	ActionParams null.String           `json:"action_params"`
+	ActionKey    null.String           `json:"action_key"`
+	Triggers     []*Trigger            `json:"triggers,omitempty"`
+	triggerMap   map[null.Int]*Trigger `json:"-"`
+}

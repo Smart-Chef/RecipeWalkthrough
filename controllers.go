@@ -128,6 +128,45 @@ var GetRecipeStepIngredients = http.HandlerFunc(func(w http.ResponseWriter, r *h
 	})
 })
 
+var GetUtensils = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	type Response struct {
+		Status string            `json:"status"`
+		Data   []*models.Utensil `json:"utensils"`
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(&Response{
+		Status: "success",
+		Data:   new(models.Utensil).GetAll(database, queries),
+	})
+})
+
+var GetRecipeUtensils = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	type Response struct {
+		Status string            `json:"status"`
+		Data   []*models.Utensil `json:"utensils"`
+	}
+	w.Header().Set("Content-Type", "application/json")
+	id := mux.Vars(r)["id"]
+	json.NewEncoder(w).Encode(&Response{
+		Status: "success",
+		Data:   new(models.Utensil).GetAllByRecipe(database, queries, id),
+	})
+})
+
+var GetUtensilStepIngredients = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	type Response struct {
+		Status string            `json:"status"`
+		Data   []*models.Utensil `json:"utensils"`
+	}
+	w.Header().Set("Content-Type", "application/json")
+	id := mux.Vars(r)["id"]
+	stepNumber := mux.Vars(r)["step_number"]
+	json.NewEncoder(w).Encode(&Response{
+		Status: "success",
+		Data:   new(models.Utensil).GetAllByRecipeStep(database, queries, id, stepNumber),
+	})
+})
+
 // Server testing controllers
 var Pong = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	log.Info("Pong!")
