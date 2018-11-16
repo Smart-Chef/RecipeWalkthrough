@@ -1,0 +1,1 @@
+INSERT INTO Recipe (id, title, created_at) VALUES (1, 'Basic Pasta', '2018-11-14 20:10:44');

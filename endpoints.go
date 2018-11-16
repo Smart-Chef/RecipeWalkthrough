@@ -55,7 +55,7 @@ var AllRoutes = [...]Endpoint{
 			http.MethodPost: Pong,
 		},
 	}, {
-		path: "/new",
+		path: "/initialize",
 		methods: map[string]http.Handler{
 			http.MethodPost: NewRecipe,
 		},
@@ -73,6 +73,59 @@ var AllRoutes = [...]Endpoint{
 		path: "/initialize",
 		methods: map[string]http.Handler{
 			http.MethodPost: InitRecipe,
+		},
+	}, {
+		path: "/recipes",
+		methods: map[string]http.Handler{
+			http.MethodGet: GetRecipes,
+		},
+		subRoutes: []Endpoint{
+			{
+				path: "/{id}",
+				methods: map[string]http.Handler{
+					http.MethodGet: GetRecipeByID,
+				},
+				subRoutes: []Endpoint{
+					{
+						path: "/ingredients",
+						methods: map[string]http.Handler{
+							http.MethodGet: GetRecipeIngredients,
+						},
+						subRoutes: []Endpoint{
+							{
+								path: "/step/{step_number}",
+								methods: map[string]http.Handler{
+									http.MethodGet: GetRecipeStepIngredients,
+								},
+							},
+						},
+					},
+					{
+						path: "/utensils",
+						methods: map[string]http.Handler{
+							http.MethodGet: GetRecipeUtensils,
+						},
+						subRoutes: []Endpoint{
+							{
+								path: "/step/{step_number}",
+								methods: map[string]http.Handler{
+									http.MethodGet: GetUtensilStepIngredients,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, {
+		path: "/ingredients",
+		methods: map[string]http.Handler{
+			http.MethodGet: GetIngredients,
+		},
+	}, {
+		path: "/utensils",
+		methods: map[string]http.Handler{
+			http.MethodGet: GetUtensils,
 		},
 	},
 }

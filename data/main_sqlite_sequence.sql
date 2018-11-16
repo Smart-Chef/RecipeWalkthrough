@@ -1,0 +1,9 @@
+INSERT INTO sqlite_sequence (name, seq) VALUES ('Ingredient', 2);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('Recipe', 1);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('Step', 3);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('Step_Ingredient', 2);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('Utensil', 1);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('Step_Utensil', 2);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('Trigger_Type', 1);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('Trigger', 1);
+INSERT INTO sqlite_sequence (name, seq) VALUES ('Trigger_Group', 1);

@@ -2,22 +2,45 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
 
+	"github.com/gchaincl/dotsql"
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
+	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
 )
 
-func main() {
+var (
+	database *sql.DB
+	queries  *dotsql.DotSql
+)
+
+func init() {
 	// Setup logger
 	Formatter := new(log.TextFormatter)
 	Formatter.TimestampFormat = "02-01-2006 15:04:05"
 	Formatter.FullTimestamp = true
 	log.SetFormatter(Formatter)
 
+	// Load env variables
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	database, err = sql.Open("sqlite3", "./smart-chef.db")
+	dot, err := dotsql.LoadFromFile("setup.sql")
+
+	dot.Exec(database, "create-smart-chef")
+	queries, err = dotsql.LoadFromFile("queries.sql")
+}
+
+func main() {
 	// Setup Mux
 	r := mux.NewRouter()
 	var wait time.Duration
@@ -48,12 +71,6 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Run the state machine
-	//go func() {
-	//	if err := srv.ListenAndServe(); err != nil {
-	//		log.Fatal(err)
-	//	}
-	//}()
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
