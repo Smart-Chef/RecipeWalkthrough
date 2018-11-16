@@ -26,6 +26,7 @@ type TriggerGroup struct {
 	ID           null.Int              `json:"id"`
 	ActionParams null.String           `json:"action_params"`
 	ActionKey    null.String           `json:"action_key"`
+	Service      null.String           `json:"service"`
 	Triggers     []*Trigger            `json:"triggers,omitempty"`
 	triggerMap   map[null.Int]*Trigger `json:"-"`
 }

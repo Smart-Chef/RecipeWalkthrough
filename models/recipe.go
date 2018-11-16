@@ -30,6 +30,15 @@ func (*Recipe) GetAll(db *sql.DB, dot *dotsql.DotSql) []*Recipe {
 		log.Error("Error with query for GetRecipes")
 	}
 
+	return scanRecipeRows(rows)
+}
+
+func (r *Recipe) GetByID(db *sql.DB, dot *dotsql.DotSql, id int) *Recipe {
+	rows, _ := dot.Query(db, "find-one-recipe-by-id", id)
+	return scanRecipeRows(rows)[0]
+}
+
+func scanRecipeRows(rows *sql.Rows) []*Recipe {
 	// Initialize the data structures to store the recipes
 	recipes := make([]*Recipe, 0)
 	recipesMap := make(map[int]*Recipe)
@@ -51,9 +60,9 @@ func (*Recipe) GetAll(db *sql.DB, dot *dotsql.DotSql) []*Recipe {
 			&ri.ID, &ri.Quantity, &ri.Unit, &ri.CreatedAt,
 			&ingredient.ID, &ingredient.Name, &ingredient.CreatedAt,
 			&step.ID, &step.Data, &step.StepNumber, &step.CreatedAt,
-			&triggerGroup.ID, &triggerGroup.ActionParams, &triggerGroup.ActionKey,
-			&trigger.ID, &trigger.ActionParams, &trigger.Action, &trigger.Service, &trigger.TriggerParams,
-			&trigger.CreatedAt, &triggerType.ID, &triggerType.CreatedAt, &triggerType.Key, &triggerType.SensorType,
+			&triggerGroup.ID, &triggerGroup.ActionParams, &triggerGroup.ActionKey, &triggerGroup.Service,
+			&trigger.ID, &trigger.ActionParams, &trigger.Action, &trigger.Service, &trigger.TriggerParams, &trigger.CreatedAt,
+			&triggerType.ID, &triggerType.CreatedAt, &triggerType.Key, &triggerType.SensorType,
 			&utensil.ID, &utensil.Name, &utensil.CreatedAt,
 		)
 
@@ -149,13 +158,4 @@ func (*Recipe) GetAll(db *sql.DB, dot *dotsql.DotSql) []*Recipe {
 		}
 	}
 	return recipes
-}
-
-func (r *Recipe) GetByID(db *sql.DB, dot *dotsql.DotSql, id string) (*Recipe, bool) {
-	row, _ := dot.QueryRow(db, "find-one-recipe-by-id", id)
-	if err := row.Scan(&r.ID, &r.Title, &r.CreatedAt); err != nil {
-		log.Error(err.Error())
-		return nil, false
-	}
-	return r, true
 }

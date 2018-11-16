@@ -8,13 +8,12 @@ import (
 	"os"
 	"recipe-walkthrough/models"
 	"strconv"
-
-	"gopkg.in/guregu/null.v3"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
 
-var CurrentStep *RecipeInfo
+var CurrentRecipe *RecipeInfo
 
 type RecipeInfo struct {
 	ID          int            `json:"recipe_id"`
@@ -27,11 +26,11 @@ type RecipeInfo struct {
 }
 
 type JobPayload struct {
-	Service       string        `json:"service"`
-	ActionKey     interface{}   `json:"action_key"`
-	ActionParams  interface{}   `json:"action_params"`
-	TriggerKeys   []null.String `json:"trigger_keys"`
-	TriggerParams []null.String `json:"trigger_params"`
+	Service       string      `json:"service"`
+	ActionKey     interface{} `json:"action_key"`
+	ActionParams  interface{} `json:"action_params"`
+	TriggerKeys   []string    `json:"trigger_keys"`
+	TriggerParams []int       `json:"trigger_params"`
 }
 
 type JobResponse struct {
@@ -43,15 +42,20 @@ func (j *JobPayload) SendJob() int {
 	url := os.Getenv("TRIGGER_QUEUE_API") + "/add/nlp"
 	payload, _ := json.Marshal(j)
 
+	log.Info(string(payload))
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(payload))
 	req.Header.Add("Content-Type", "application/json")
-	res, _ := http.DefaultClient.Do(req)
+	res, err := http.DefaultClient.Do(req)
+
+	if err != nil {
+		log.Error(err.Error())
+	}
 
 	defer res.Body.Close()
 
-	decoder := json.NewDecoder(req.Body)
+	decoder := json.NewDecoder(res.Body)
 	var resp JobResponse
-	err := decoder.Decode(&resp)
+	err = decoder.Decode(&resp)
 	if err != nil {
 		panic(err)
 	}
@@ -64,9 +68,9 @@ func (r *RecipeInfo) incrementNSteps(n int) {
 	//s.StepNum += n
 }
 
-func (r *RecipeInfo) newRecipe(id string) {
+func (r *RecipeInfo) newRecipe(id int) {
 	// Get recipe from the database
-	recipe, _ := new(models.Recipe).GetByID(database, queries, id)
+	recipe := new(models.Recipe).GetByID(database, queries, id)
 
 	// Setup Recipe info
 	r.ID = recipe.ID
@@ -80,6 +84,7 @@ func (r *RecipeInfo) newRecipe(id string) {
 	}
 
 	r.recipe = recipe
+	r.initStep(0)
 }
 
 func (r *RecipeInfo) clear() {
@@ -96,7 +101,8 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 		return true, nil
 	}
 
-	if step <= 0 || step > r.TotalSteps {
+	if step < 0 || step > r.TotalSteps {
+		log.Error("invalid step")
 		return false, errors.New("invalid step")
 	}
 
@@ -105,25 +111,45 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 
 	// Construct each JobPayload from each TriggerGroup
 	for _, triggerGroup := range r.recipe.Steps[step].TriggerGroups {
-		var job *JobPayload
+		var job JobPayload
 
-		job.ActionParams = triggerGroup.ActionParams
-		job.ActionKey = triggerGroup.ActionKey
+		if triggerGroup.ActionParams.Valid {
+			job.ActionParams = triggerGroup.ActionParams
+		}
+
+		if triggerGroup.ActionKey.Valid {
+			job.ActionKey = triggerGroup.ActionKey
+		}
+
+		if triggerGroup.Service.Valid {
+			job.Service = triggerGroup.Service.String
+		}
 
 		// Loop through all the triggers in the trigger group
 		for _, trigger := range triggerGroup.Triggers {
-			job.TriggerParams = append(job.TriggerParams, trigger.TriggerParams)
-			job.TriggerKeys = append(job.TriggerKeys, trigger.TriggerType.Key)
+			l, _ := strconv.Atoi(trigger.TriggerParams.String)
+			job.TriggerParams = append(job.TriggerParams, l)
+			job.TriggerKeys = append(job.TriggerKeys, trigger.TriggerType.Key.String)
 		}
-
-		jobs = append(jobs, job)
+		jobs = append(jobs, &job)
 	}
 
 	// Send the jobs to the trigger-queue
+	jobIDs := make(chan int)
+	var wg sync.WaitGroup
+	wg.Add(len(jobs))
+
 	for _, j := range jobs {
-		go func() {
-			r.JobIDs = append(r.JobIDs, j.SendJob())
-		}()
+		go func(l *JobPayload) {
+			defer wg.Done()
+			jobIDs <- l.SendJob()
+		}(j)
+	}
+
+	wg.Wait()
+
+	for id := range jobIDs {
+		r.JobIDs = append(r.JobIDs, id)
 	}
 
 	// Update self
@@ -145,8 +171,8 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 
 func init() {
 	// Initialize to a non-existent step
-	CurrentStep = new(RecipeInfo)
-	CurrentStep.ID = -1
+	CurrentRecipe = new(RecipeInfo)
+	//CurrentRecipe.newRecipe(1)
 
 	//url := os.Getenv("TRIGGER_QUEUE_API") + "/add/nlp"
 	//

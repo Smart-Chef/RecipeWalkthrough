@@ -55,7 +55,7 @@ var AllRoutes = [...]Endpoint{
 			http.MethodPost: Pong,
 		},
 	}, {
-		path: "/new",
+		path: "/initialize",
 		methods: map[string]http.Handler{
 			http.MethodPost: NewRecipe,
 		},

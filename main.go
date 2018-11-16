@@ -71,12 +71,6 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Run the state machine
-	//go func() {
-	//	if err := srv.ListenAndServe(); err != nil {
-	//		log.Fatal(err)
-	//	}
-	//}()
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {

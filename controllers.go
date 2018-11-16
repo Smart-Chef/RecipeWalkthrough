@@ -25,11 +25,27 @@ func handleBadRequest(w http.ResponseWriter, msgAndArgs ...interface{}) {
 
 // Server testing controllers
 var NewRecipe = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	panic("Implement Me")
+	type Request struct {
+		ID int `json:"id"`
+	}
+	type Response struct {
+		Status string `json:"status"`
+	}
+
+	req := &Request{}
+	json.NewDecoder(r.Body).Decode(&req)
+	w.Header().Set("Content-Type", "application/json")
+
+	CurrentRecipe.newRecipe(req.ID)
+
+	json.NewEncoder(w).Encode(&Response{
+		Status: "success",
+	})
 })
 
 var GetCurrentStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(CurrentStep)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(CurrentRecipe)
 })
 
 var GotToNStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -41,11 +57,15 @@ var GotToNStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		Msg    string `json:"msg"`
 	}
 
-	req := &Request{}
-	json.NewDecoder(r.Body).Decode(&req)
+	req := Request{}
+	err := json.NewDecoder(r.Body).Decode(&req)
 	w.Header().Set("Content-Type", "application/json")
 
-	CurrentStep.incrementNSteps(req.IncrementSteps)
+	if err != nil {
+		log.Error(err.Error())
+	}
+
+	//CurrentStep.incrementNSteps(req.IncrementSteps)
 
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",
@@ -77,8 +97,9 @@ var GetRecipeByID = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	id := mux.Vars(r)["id"]
-	recipe, _ := new(models.Recipe).GetByID(database, queries, id)
+	id, _ := mux.Vars(r)["id"]
+	idInt, _ := strconv.Atoi(id)
+	recipe := new(models.Recipe).GetByID(database, queries, idInt)
 
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",
