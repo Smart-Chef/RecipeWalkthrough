@@ -1,28 +1,26 @@
 package models
 
 import (
-	"time"
-
 	"gopkg.in/guregu/null.v3"
 )
 
 type Step struct {
-	ID              int                        `json:"id"`
+	ID              null.Int                   `json:"id"`
 	Recipe          *Recipe                    `json:"recipe,omitempty"`
-	Data            string                     `json:"data"`
+	Data            null.String                `json:"data"`
 	Utensils        []*Utensil                 `json:"utensil,omitempty"`
 	utensilMap      map[null.Int]*Utensil      `json:"-"`
 	TriggerGroups   []*TriggerGroup            `json:"trigger_groups,omitempty"`
 	triggerGroupMap map[null.Int]*TriggerGroup `json:"-"`
-	StepNumber      int                        `json:"step_number"`
-	CreatedAt       time.Time                  `json:"created_at"`
+	StepNumber      null.Int                   `json:"step_number"`
+	CreatedAt       null.Time                  `json:"created_at"`
 }
 
 type StepIngredient struct {
-	ID         int         `json:"id"`
+	ID         null.Int    `json:"id"`
 	Recipe     *Recipe     `json:"recipe,omitempty"`
 	Ingredient *Ingredient `json:"ingredient,omitempty"`
-	Quantity   int         `json:"quantity"`
-	Unit       string      `json:"unit"`
-	CreatedAt  time.Time   `json:"created_at"`
+	Quantity   null.Int    `json:"quantity"`
+	Unit       null.String `json:"unit"`
+	CreatedAt  null.Time   `json:"created_at"`
 }

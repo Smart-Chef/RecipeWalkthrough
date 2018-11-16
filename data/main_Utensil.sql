@@ -1,0 +1,1 @@
+INSERT INTO Utensil (id, name, created_at) VALUES (1, 'Pot', '2018-11-14 20:12:12');

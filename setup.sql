@@ -62,8 +62,9 @@ create table Trigger_Group
 	step_fk integer
 		constraint step__fk
 			references Step,
-	action_params varchar,
-	action_key varchar
+	action_key varchar,
+	service varchar,
+	action_params varchar
 )
 ;
 

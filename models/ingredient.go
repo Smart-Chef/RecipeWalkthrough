@@ -2,17 +2,17 @@ package models
 
 import (
 	"database/sql"
-	"time"
 
 	"github.com/gchaincl/dotsql"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/guregu/null.v3"
 )
 
 type Ingredient struct {
-	ID        int             `json:"id,omitempty"`
-	Name      string          `json:"name,omitempty"`
+	ID        null.Int        `json:"id,omitempty"`
+	Name      null.String     `json:"name,omitempty"`
 	StepInfo  *StepIngredient `json:"step_info,omitempty"`
-	CreatedAt time.Time       `json:"created_at,omitempty"`
+	CreatedAt null.Time       `json:"created_at,omitempty"`
 }
 
 func (*Ingredient) GetAll(db *sql.DB, dot *dotsql.DotSql) []*Ingredient {

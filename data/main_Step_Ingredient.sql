@@ -1,0 +1,2 @@
+INSERT INTO Step_Ingredient (id, quantity, unit, created_at, step_fk, ingredient_fk) VALUES (1, 12, 'oz', '2018-11-14 20:11:46', 1, 1);
+INSERT INTO Step_Ingredient (id, quantity, unit, created_at, step_fk, ingredient_fk) VALUES (2, 12, 'grams', '2018-11-14 20:11:46', 2, 2);

@@ -8,7 +8,8 @@ import (
 	"os"
 	"recipe-walkthrough/models"
 	"strconv"
-	"sync"
+
+	"gopkg.in/guregu/null.v3"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -16,7 +17,7 @@ import (
 var CurrentRecipe *RecipeInfo
 
 type RecipeInfo struct {
-	ID          int            `json:"recipe_id"`
+	ID          null.Int       `json:"recipe_id"`
 	JobIDs      []int          `json:"job_id"`
 	CurrentStep *models.Step   `json:"current_step"`
 	PrevStep    *models.Step   `json:"prev_step"`
@@ -63,9 +64,8 @@ func (j *JobPayload) SendJob() int {
 }
 
 func (r *RecipeInfo) incrementNSteps(n int) {
-	// TODO: implement real step changing
 	log.Info("Incrementing " + strconv.Itoa(n) + " step(s)")
-	//s.StepNum += n
+	r.initStep(int(r.CurrentStep.StepNumber.Int64 + int64(n-1)))
 }
 
 func (r *RecipeInfo) newRecipe(id int) {
@@ -88,7 +88,7 @@ func (r *RecipeInfo) newRecipe(id int) {
 }
 
 func (r *RecipeInfo) clear() {
-	r.ID = -1
+	r.ID = null.IntFrom(-1)
 	r.TotalSteps = 0
 	r.CurrentStep = nil
 	r.NextStep = nil
@@ -96,7 +96,7 @@ func (r *RecipeInfo) clear() {
 }
 
 func (r *RecipeInfo) initStep(step int) (bool, error) {
-	if step+1 == r.TotalSteps || r.ID == -1 {
+	if step == r.TotalSteps || r.ID.ValueOrZero() == -1 {
 		r.clear()
 		return true, nil
 	}
@@ -135,22 +135,23 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 	}
 
 	// Send the jobs to the trigger-queue
-	jobIDs := make(chan int)
-	var wg sync.WaitGroup
-	wg.Add(len(jobs))
+	//jobIDs := make(chan int)
+	//var wg sync.WaitGroup
+	//wg.Add(len(jobs))
 
 	for _, j := range jobs {
-		go func(l *JobPayload) {
-			defer wg.Done()
-			jobIDs <- l.SendJob()
+		func(l *JobPayload) {
+			//defer wg.Done()
+			//jobIDs <- l.SendJob()
+			r.JobIDs = append(r.JobIDs, l.SendJob())
 		}(j)
 	}
 
-	wg.Wait()
+	//wg.Wait()
 
-	for id := range jobIDs {
-		r.JobIDs = append(r.JobIDs, id)
-	}
+	//for id := range jobIDs {
+	//	r.JobIDs = append(r.JobIDs, id)
+	//}
 
 	// Update self
 	if step > 0 {

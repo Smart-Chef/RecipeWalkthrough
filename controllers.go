@@ -65,7 +65,7 @@ var GotToNStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Error(err.Error())
 	}
 
-	//CurrentStep.incrementNSteps(req.IncrementSteps)
+	CurrentRecipe.incrementNSteps(req.IncrementSteps)
 
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",

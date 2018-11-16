@@ -2,7 +2,6 @@ package models
 
 import (
 	"database/sql"
-	"time"
 
 	"gopkg.in/guregu/null.v3"
 
@@ -11,13 +10,13 @@ import (
 )
 
 type Recipe struct {
-	ID                  int                     `json:"id"`
-	Title               string                  `json:"title"`
-	CreatedAt           time.Time               `json:"created_at"`
-	RecipeIngredients   []*StepIngredient       `json:"recipe_ingredients,omitempty"`
-	recipeIngredientMap map[int]*StepIngredient `json:"-"`
-	Steps               []*Step                 `json:"steps,omitempty"`
-	stepsMap            map[int]*Step           `json:"-"`
+	ID                  null.Int                     `json:"id"`
+	Title               null.String                  `json:"title"`
+	CreatedAt           null.Time                    `json:"created_at"`
+	RecipeIngredients   []*StepIngredient            `json:"recipe_ingredients,omitempty"`
+	recipeIngredientMap map[null.Int]*StepIngredient `json:"-"`
+	Steps               []*Step                      `json:"steps,omitempty"`
+	stepsMap            map[null.Int]*Step           `json:"-"`
 }
 
 // GetAll Recipes and related data
@@ -41,7 +40,7 @@ func (r *Recipe) GetByID(db *sql.DB, dot *dotsql.DotSql, id int) *Recipe {
 func scanRecipeRows(rows *sql.Rows) []*Recipe {
 	// Initialize the data structures to store the recipes
 	recipes := make([]*Recipe, 0)
-	recipesMap := make(map[int]*Recipe)
+	recipesMap := make(map[null.Int]*Recipe)
 
 	// Loop through the results
 	for rows.Next() {
@@ -81,8 +80,8 @@ func scanRecipeRows(rows *sql.Rows) []*Recipe {
 			r = &recipe
 
 			// Initialize the maps
-			r.stepsMap = make(map[int]*Step)
-			r.recipeIngredientMap = make(map[int]*StepIngredient)
+			r.stepsMap = make(map[null.Int]*Step)
+			r.recipeIngredientMap = make(map[null.Int]*StepIngredient)
 			step.triggerGroupMap = make(map[null.Int]*TriggerGroup)
 			step.utensilMap = make(map[null.Int]*Utensil)
 			step.triggerGroupMap = make(map[null.Int]*TriggerGroup)
