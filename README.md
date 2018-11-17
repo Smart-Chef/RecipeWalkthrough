@@ -6,6 +6,19 @@ The recipe walkthrough has two large functionalities. The first one is the initi
 
 The other functionality of this service is to either change the current step or the current recipe. If the action is to change the step (i.e. an action from a trigger is trying to increment to the next step) or recipe, both will first will ensure that all triggers for the currently active step have been removed from the trigger queue. If it a new step, the new step will be initialized. If the step is to change recipes, it will now enter the initialize recipe workflow.
 
+## CLI
+Use `-h` to see help
+
+```shell
+Usage of ./recipe-walkthrough:
+  -setup
+    	Run setup (includes creating db schema)
+  -verbose
+    	Display verbose logs
+  -walk
+    	Walk the routes
+```
+
 ## Setup
 
 Ensure you have a go version compatible with modules
@@ -16,6 +29,19 @@ cd recipe-walkthrough
 go build
 ./recipe-walkthrough
 ```
+
+## Loading data
+
+You can load the DB schema with either of the two commands
+
+```shell
+./recipe-walkthrough -setup
+# or
+sqlite3 smart-chef.db < setup.sql
+```
+
+SQL scripts for mock data is located in `data`.
+You can load them into the DB with `cat data/* | sqlite3 smart-chef.db`
 
 ## Dev Usage
 
