@@ -47,7 +47,7 @@ type ClearJobResponse struct {
 // SendJob to the trigger queue
 // returns JobID, error
 func (j *JobPayload) SendJob() (int, error) {
-	url := os.Getenv("TRIGGER_QUEUE_API") + "/add/walk-through"
+	url := os.Getenv("TRIGGER_QUEUE_API") + "/add"
 	payload, _ := json.Marshal(j)
 
 	log.Infof("Sending to trigger-queue: %s", payload)
