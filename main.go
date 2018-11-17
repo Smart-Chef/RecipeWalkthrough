@@ -52,6 +52,21 @@ func init() {
 		log.Fatal("Error loading .env file")
 	}
 
+	// Print env values
+	if verboseFlg {
+		var env map[string]string
+		env, err = godotenv.Read()
+
+		if err != nil {
+			log.Warn("Error printing .env files")
+		} else {
+			log.Info("Environment Variables")
+			for k, v := range env {
+				log.Printf("%s=%s\n", k, v)
+			}
+		}
+	}
+
 	// Setup Database
 	database, err = sql.Open("sqlite3", "./smart-chef.db")
 	if err != nil {
