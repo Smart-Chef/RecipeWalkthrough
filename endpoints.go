@@ -70,11 +70,6 @@ var AllRoutes = [...]Endpoint{
 			http.MethodPost: GotToNStep,
 		},
 	}, {
-		path: "/initialize",
-		methods: map[string]http.Handler{
-			http.MethodPost: InitRecipe,
-		},
-	}, {
 		path: "/recipes",
 		methods: map[string]http.Handler{
 			http.MethodGet: GetRecipes,

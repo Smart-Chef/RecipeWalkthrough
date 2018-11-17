@@ -23,8 +23,11 @@ func handleBadRequest(w http.ResponseWriter, msgAndArgs ...interface{}) {
 	}{INVALIDSTATUS, msgAndArgs})
 }
 
-// Server testing controllers
+// NewRecipe initializes recipe by RECIPE_ID
+// Payload: { "id": RECIPE_ID }
+// Response: { "status": msg }
 var NewRecipe = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	type Request struct {
 		ID int `json:"id"`
 	}
@@ -33,10 +36,23 @@ var NewRecipe = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := &Request{}
-	json.NewDecoder(r.Body).Decode(&req)
-	w.Header().Set("Content-Type", "application/json")
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Error("Invalid Request in NewRecipe")
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
+	}
 
-	CurrentRecipe.newRecipe(req.ID)
+	// Setup the newRecipe
+	err = CurrentRecipe.newRecipe(req.ID)
+
+	if err != nil {
+		log.Error("Error setting up new recipe")
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
+	}
 
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",
@@ -45,61 +61,108 @@ var NewRecipe = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 var GetCurrentStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(CurrentRecipe)
+	err := json.NewEncoder(w).Encode(CurrentRecipe)
+	if err != nil {
+		log.Error("Error marshalling CurrentRecipe")
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+	}
 })
 
 var GotToNStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	type Request struct {
 		IncrementSteps int `json:"increment_steps"`
 	}
 	type Response struct {
-		Status string `json:"status"`
-		Msg    string `json:"msg"`
+		Status     string `json:"status"`
+		RecipeDone bool   `json:"recipe_done"`
+		Msg        string `json:"msg"`
 	}
 
 	req := Request{}
 	err := json.NewDecoder(r.Body).Decode(&req)
-	w.Header().Set("Content-Type", "application/json")
 
 	if err != nil {
+		log.Error("Invalid Request ")
 		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
 	}
 
-	CurrentRecipe.incrementNSteps(req.IncrementSteps)
+	recipeDone, err := CurrentRecipe.incrementNSteps(req.IncrementSteps)
+
+	if err != nil {
+		log.Errorf("Error incrementing %d steps", req.IncrementSteps)
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
+	}
+
+	var msg string
+	if recipeDone {
+		log.Infof("Recipe(%d) is now completed", CurrentRecipe.ID.Int64)
+		msg = "Recipe completed"
+	} else {
+		msg = "Go forward " + strconv.Itoa(req.IncrementSteps) + " step(s)"
+	}
 
 	json.NewEncoder(w).Encode(&Response{
-		Status: "success",
-		Msg:    "Go forward " + strconv.Itoa(req.IncrementSteps) + " step(s)",
+		Status:     "success",
+		RecipeDone: recipeDone,
+		Msg:        msg,
 	})
 })
 
-var InitRecipe = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	panic("Implement Me")
-})
-
 var GetRecipes = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	type Response struct {
 		Status string           `json:"status"`
 		Data   []*models.Recipe `json:"recipes"`
 	}
-	w.Header().Set("Content-Type", "application/json")
+
+	recipes, err := new(models.Recipe).GetAll(database, queries)
+	if err != nil {
+		log.Error("Error getting all recipes")
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
+	}
 
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",
-		Data:   new(models.Recipe).GetAll(database, queries),
+		Data:   recipes,
 	})
 })
 
 var GetRecipeByID = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	type Response struct {
 		Status string         `json:"status"`
 		Data   *models.Recipe `json:"data"`
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	id, _ := mux.Vars(r)["id"]
-	idInt, _ := strconv.Atoi(id)
-	recipe := new(models.Recipe).GetByID(database, queries, idInt)
+	id, ok := mux.Vars(r)["id"]
+	if !ok {
+		msg := "No {ID} sent in route"
+		log.Error(msg)
+		handleBadRequest(w, msg)
+		return
+	}
+
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
+	}
+	recipe, err := new(models.Recipe).GetByID(database, queries, idInt)
+
+	if err != nil {
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
+	}
 
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",
@@ -108,15 +171,23 @@ var GetRecipeByID = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request
 })
 
 var GetIngredients = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	type Response struct {
 		Status string               `json:"status"`
 		Data   []*models.Ingredient `json:"ingredients"`
 	}
-	w.Header().Set("Content-Type", "application/json")
+
+	ingredients, err := new(models.Ingredient).GetAll(database, queries)
+	if err != nil {
+		log.Error("Error getting all ingredients")
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
+	}
 
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",
-		Data:   new(models.Ingredient).GetAll(database, queries),
+		Data:   ingredients,
 	})
 })
 
@@ -126,11 +197,24 @@ var GetRecipeIngredients = http.HandlerFunc(func(w http.ResponseWriter, r *http.
 		Data   []*models.Ingredient `json:"ingredients"`
 	}
 	w.Header().Set("Content-Type", "application/json")
-	id := mux.Vars(r)["id"]
+	id, ok := mux.Vars(r)["id"]
+	if !ok {
+		log.Error("Error parsing ID from request route")
+		handleBadRequest(w, "Error parsing ID from request route")
+		return
+	}
+
+	ingredients, err := new(models.Ingredient).GetAllByRecipe(database, queries, id)
+	if err != nil {
+		log.Errorf("Error getting all ingredients for recipe (%d)", CurrentRecipe.ID)
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
+	}
 
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",
-		Data:   new(models.Ingredient).GetAllByRecipe(database, queries, id),
+		Data:   ingredients,
 	})
 })
 
@@ -140,51 +224,105 @@ var GetRecipeStepIngredients = http.HandlerFunc(func(w http.ResponseWriter, r *h
 		Data   []*models.Ingredient `json:"ingredients"`
 	}
 	w.Header().Set("Content-Type", "application/json")
-	id := mux.Vars(r)["id"]
-	stepNumber := mux.Vars(r)["step_number"]
+	id, ok := mux.Vars(r)["id"]
+	if !ok {
+		log.Error("Error parsing ID from request route")
+		handleBadRequest(w, "Error parsing ID from request route")
+		return
+	}
 
+	stepNumber, ok := mux.Vars(r)["step_number"]
+	if !ok {
+		log.Error("Error parsing step_number from request route")
+		handleBadRequest(w, "Error parsing step_number from request route")
+		return
+	}
+
+	ingredients, err := new(models.Ingredient).GetAllByRecipeStep(database, queries, id, stepNumber)
+	if err != nil {
+		log.Error("Error ingredients by step")
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
+	}
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",
-		Data:   new(models.Ingredient).GetAllByRecipeStep(database, queries, id, stepNumber),
+		Data:   ingredients,
 	})
 })
 
 var GetUtensils = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	type Response struct {
 		Status string            `json:"status"`
 		Data   []*models.Utensil `json:"utensils"`
 	}
-	w.Header().Set("Content-Type", "application/json")
+	utensils, err := new(models.Utensil).GetAll(database, queries)
+	if err != nil {
+		log.Error("Error getting all utensils")
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
+	}
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",
-		Data:   new(models.Utensil).GetAll(database, queries),
+		Data:   utensils,
 	})
 })
 
 var GetRecipeUtensils = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	type Response struct {
 		Status string            `json:"status"`
 		Data   []*models.Utensil `json:"utensils"`
 	}
-	w.Header().Set("Content-Type", "application/json")
-	id := mux.Vars(r)["id"]
+	id, ok := mux.Vars(r)["id"]
+	if !ok {
+		log.Error("Error parsing ID from request route")
+		handleBadRequest(w, "Error parsing ID from request route")
+		return
+	}
+	utensils, err := new(models.Utensil).GetAllByRecipe(database, queries, id)
+	if err != nil {
+		log.Error("Error getting all utensils for recipe")
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
+	}
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",
-		Data:   new(models.Utensil).GetAllByRecipe(database, queries, id),
+		Data:   utensils,
 	})
 })
 
 var GetUtensilStepIngredients = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	type Response struct {
 		Status string            `json:"status"`
 		Data   []*models.Utensil `json:"utensils"`
 	}
-	w.Header().Set("Content-Type", "application/json")
-	id := mux.Vars(r)["id"]
-	stepNumber := mux.Vars(r)["step_number"]
+	id, ok := mux.Vars(r)["id"]
+	if !ok {
+		log.Error("Error parsing ID from request route")
+		handleBadRequest(w, "Error parsing ID from request route")
+		return
+	}
+	stepNumber, ok := mux.Vars(r)["step_number"]
+	if !ok {
+		log.Error("Error parsing step_number from request route")
+		handleBadRequest(w, "Error parsing step_number from request route")
+		return
+	}
+	utensils, err := new(models.Utensil).GetAllByRecipeStep(database, queries, id, stepNumber)
+	if err != nil {
+		log.Error("Error getting all utensils for recipe-step")
+		log.Error(err.Error())
+		handleBadRequest(w, err.Error())
+		return
+	}
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",
-		Data:   new(models.Utensil).GetAllByRecipeStep(database, queries, id, stepNumber),
+		Data:   utensils,
 	})
 })
 

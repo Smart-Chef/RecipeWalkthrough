@@ -4,7 +4,6 @@ import (
 	"database/sql"
 
 	"github.com/gchaincl/dotsql"
-	log "github.com/sirupsen/logrus"
 	"gopkg.in/guregu/null.v3"
 )
 
@@ -14,12 +13,13 @@ type Utensil struct {
 	CreatedAt null.Time   `json:"created_at,omitempty"`
 }
 
-func (*Utensil) GetAll(db *sql.DB, dot *dotsql.DotSql) []*Utensil {
+// GetAll utensils in the database
+func (*Utensil) GetAll(db *sql.DB, dot *dotsql.DotSql) ([]*Utensil, error) {
 	rows, err := dot.Query(db, "get-all-utensils")
 	defer rows.Close()
 
 	if err != nil {
-		log.Error("Error with query for GetRecipes")
+		return nil, err
 	}
 
 	utensils := make([]*Utensil, 0)
@@ -29,20 +29,21 @@ func (*Utensil) GetAll(db *sql.DB, dot *dotsql.DotSql) []*Utensil {
 		err := rows.Scan(&utensil.ID, &utensil.Name, &utensil.CreatedAt)
 
 		if err != nil {
-			log.Error(err.Error())
+			return nil, err
 		} else {
 			utensils = append(utensils, &utensil)
 		}
 	}
-	return utensils
+	return utensils, nil
 }
 
-func (i *Utensil) GetAllByRecipe(db *sql.DB, dot *dotsql.DotSql, recipeID string) []*Utensil {
+// GetAllByRecipe - get all utensils by recipe id
+func (i *Utensil) GetAllByRecipe(db *sql.DB, dot *dotsql.DotSql, recipeID string) ([]*Utensil, error) {
 	rows, err := dot.Query(db, "get-recipe-utensil-by-recipe-id", recipeID)
 	defer rows.Close()
 
 	if err != nil {
-		log.Error("Error with query for Utensil.GetAllByRecipe")
+		return nil, err
 	}
 
 	utensils := make([]*Utensil, 0)
@@ -52,20 +53,21 @@ func (i *Utensil) GetAllByRecipe(db *sql.DB, dot *dotsql.DotSql, recipeID string
 		err := rows.Scan(&utensil.ID, &utensil.Name, &utensil.CreatedAt)
 
 		if err != nil {
-			log.Error(err.Error())
+			return nil, err
 		} else {
 			utensils = append(utensils, &utensil)
 		}
 	}
-	return utensils
+	return utensils, nil
 }
 
-func (i *Utensil) GetAllByRecipeStep(db *sql.DB, dot *dotsql.DotSql, recipeID string, stepNumber string) []*Utensil {
+// GetAllByRecipeStep - get all utensils by recipe step id and recipe id
+func (i *Utensil) GetAllByRecipeStep(db *sql.DB, dot *dotsql.DotSql, recipeID string, stepNumber string) ([]*Utensil, error) {
 	rows, err := dot.Query(db, "get-recipe-utensils-by-recipe-step-number", recipeID, stepNumber)
 	defer rows.Close()
 
 	if err != nil {
-		log.Error("Error with query for Utensil.GetAllByRecipeStep")
+		return nil, err
 	}
 
 	ingredients := make([]*Utensil, 0)
@@ -75,10 +77,10 @@ func (i *Utensil) GetAllByRecipeStep(db *sql.DB, dot *dotsql.DotSql, recipeID st
 		err := rows.Scan(&utensil.ID, &utensil.Name, &utensil.CreatedAt)
 
 		if err != nil {
-			log.Error(err.Error())
+			return nil, err
 		} else {
 			ingredients = append(ingredients, &utensil)
 		}
 	}
-	return ingredients
+	return ingredients, nil
 }

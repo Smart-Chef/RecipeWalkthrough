@@ -1,1 +1,1 @@
-INSERT INTO Trigger_Group (id, step_fk, action_key, service, action_params) VALUES (1, 1, 'changeStep', 'nlp', '{"increment_steps": 1}');
+INSERT INTO Trigger_Group (id, step_fk, action_key, service, action_params) VALUES (1, 1, 'changeStep', 'walk-through', '{"increment_steps": 1}');

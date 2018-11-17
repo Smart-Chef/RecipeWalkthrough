@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"gopkg.in/guregu/null.v3"
 
 	"github.com/gchaincl/dotsql"
 	"github.com/gorilla/mux"
@@ -16,11 +19,27 @@ import (
 )
 
 var (
+	// Flags
+	walkFlg    bool // Walk and print the routes - default: false
+	verboseFlg bool // Verbose logging - default: false
+	setupFlg   bool // Setup DB - default: false
+
+	// Database
 	database *sql.DB
 	queries  *dotsql.DotSql
+
+	// CurrentRecipe tracker
+	CurrentRecipe *RecipeInfo
 )
 
 func init() {
+	// Handle cli flags
+	flag.BoolVar(&walkFlg, "walk", false, "Walk the routes")
+	flag.BoolVar(&verboseFlg, "verbose", false, "Display verbose logs")
+	flag.BoolVar(&setupFlg, "setup", false, "Run setup")
+
+	flag.Parse()
+
 	// Setup logger
 	Formatter := new(log.TextFormatter)
 	Formatter.TimestampFormat = "02-01-2006 15:04:05"
@@ -33,11 +52,38 @@ func init() {
 		log.Fatal("Error loading .env file")
 	}
 
+	// Setup Database
 	database, err = sql.Open("sqlite3", "./smart-chef.db")
-	dot, err := dotsql.LoadFromFile("setup.sql")
+	if err != nil {
+		log.Error(err.Error())
+		log.Fatal("Error opening smart-chef.db")
+	}
 
-	dot.Exec(database, "create-smart-chef")
+	if setupFlg {
+		dot, err := dotsql.LoadFromFile("setup.sql")
+		if err != nil {
+			log.Error(err.Error())
+			log.Fatal("Error reading setup.sql file")
+		}
+
+		_, err = dot.Exec(database, "create-smart-chef")
+		if err != nil {
+			log.Error(err.Error())
+			log.Fatal("Error running setup.sql file")
+		}
+	}
+
 	queries, err = dotsql.LoadFromFile("queries.sql")
+	if err != nil {
+		log.Error(err.Error())
+		log.Fatal("Error loading queries.sql")
+	}
+
+	// Create recipe object
+	CurrentRecipe = &RecipeInfo{
+		ID:         null.IntFrom(-1),
+		TotalSteps: 0,
+	}
 }
 
 func main() {
@@ -59,7 +105,9 @@ func main() {
 	CreateRoutes(r, AllRoutes[:], "/api")
 
 	// Walk all the routes
-	r.Walk(RouteWalker)
+	if walkFlg {
+		r.Walk(RouteWalker)
+	}
 
 	// Start server
 	srv := &http.Server{
@@ -73,6 +121,7 @@ func main() {
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
+		log.Printf("Starting recipe-walkthrough server at %s", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
