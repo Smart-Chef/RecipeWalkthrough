@@ -2,11 +2,11 @@ package models
 
 import (
 	"database/sql"
+	"errors"
 
 	"gopkg.in/guregu/null.v3"
 
 	"github.com/gchaincl/dotsql"
-	log "github.com/sirupsen/logrus"
 )
 
 type Recipe struct {
@@ -20,24 +20,36 @@ type Recipe struct {
 }
 
 // GetAll Recipes and related data
-func (*Recipe) GetAll(db *sql.DB, dot *dotsql.DotSql) []*Recipe {
-	// Execute the query for the data
+func (*Recipe) GetAll(db *sql.DB, dot *dotsql.DotSql) ([]*Recipe, error) {
 	rows, err := dot.Query(db, "get-all-recipes")
 	defer rows.Close()
-
 	if err != nil {
-		log.Error("Error with query for GetRecipes")
+		return nil, err
 	}
-
 	return scanRecipeRows(rows)
 }
 
-func (r *Recipe) GetByID(db *sql.DB, dot *dotsql.DotSql, id int) *Recipe {
-	rows, _ := dot.Query(db, "find-one-recipe-by-id", id)
-	return scanRecipeRows(rows)[0]
+// GetByID - get a single recipe by id and all its related data
+func (r *Recipe) GetByID(db *sql.DB, dot *dotsql.DotSql, id int) (*Recipe, error) {
+	rows, err := dot.Query(db, "find-one-recipe-by-id", id)
+	defer rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	recipes, err := scanRecipeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(recipes) > 1 {
+		return nil, errors.New("more than 1 recipe returned")
+	} else if len(recipes) < 1 {
+		return nil, errors.New("no recipe found")
+	}
+	return recipes[0], nil
 }
 
-func scanRecipeRows(rows *sql.Rows) []*Recipe {
+// Pars the recipe rows for data
+func scanRecipeRows(rows *sql.Rows) ([]*Recipe, error) {
 	// Initialize the data structures to store the recipes
 	recipes := make([]*Recipe, 0)
 	recipesMap := make(map[null.Int]*Recipe)
@@ -67,8 +79,7 @@ func scanRecipeRows(rows *sql.Rows) []*Recipe {
 
 		// Continue to the next row if there is an error fetching the data
 		if err != nil {
-			log.Error(err.Error())
-			continue
+			return nil, err
 		}
 
 		r, ok := recipesMap[recipe.ID]
@@ -156,5 +167,5 @@ func scanRecipeRows(rows *sql.Rows) []*Recipe {
 			}
 		}
 	}
-	return recipes
+	return recipes, nil
 }
