@@ -112,6 +112,7 @@ func (r *RecipeInfo) newRecipe(id int) error {
 	r.CurrentStep = recipe.Steps[0]
 	r.PrevStep = nil
 	r.NextStep = nil
+	r.JobIDs = make([]int, 0)
 
 	if r.TotalSteps > 1 {
 		r.NextStep = recipe.Steps[1]
@@ -230,6 +231,7 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 	}
 
 	// Update self
+	r.JobIDs = make([]int, 0)
 	if step > 0 {
 		r.PrevStep = r.recipe.Steps[step-1]
 	} else {
