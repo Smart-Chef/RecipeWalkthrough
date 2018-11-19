@@ -78,6 +78,7 @@ var GotToNStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		Status     string `json:"status"`
 		RecipeDone bool   `json:"recipe_done"`
 		Msg        string `json:"msg"`
+		StepInfo   string `json:"step_info"`
 	}
 
 	req := Request{}
@@ -111,6 +112,7 @@ var GotToNStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		Status:     "success",
 		RecipeDone: recipeDone,
 		Msg:        msg,
+		StepInfo:   CurrentRecipe.CurrentStep.Data.String,
 	})
 })
 

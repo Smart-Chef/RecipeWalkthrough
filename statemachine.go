@@ -8,6 +8,7 @@ import (
 	"os"
 	"recipe-walkthrough/models"
 	"strconv"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/guregu/null.v3"
@@ -24,11 +25,11 @@ type RecipeInfo struct {
 }
 
 type JobPayload struct {
-	Service       string      `json:"service"`
-	ActionKey     interface{} `json:"action_key"`
-	ActionParams  interface{} `json:"action_params"`
-	TriggerKeys   []string    `json:"trigger_keys"`
-	TriggerParams []int       `json:"trigger_params"`
+	Service       string        `json:"service"`
+	ActionKey     interface{}   `json:"action_key"`
+	ActionParams  interface{}   `json:"action_params"`
+	TriggerKeys   []string      `json:"trigger_keys"`
+	TriggerParams []interface{} `json:"trigger_params"`
 }
 
 type JobResponse struct {
@@ -44,9 +45,23 @@ type ClearJobResponse struct {
 	ID int `json:"id"`
 }
 
+// Any special setup for triggers/actions before sending to trigger-queue
+// i.e dynamic triggers or actions
+func (j *JobPayload) specialJobSetup() error {
+	for i, trigger := range j.TriggerKeys {
+		// Convert the delay to a timestamp
+		if trigger == "timer" {
+			loc, _ := time.LoadLocation("UTC")
+			j.TriggerParams[i] = time.Now().In(loc).Add(time.Second * time.Duration(j.TriggerParams[i].(int)))
+		}
+	}
+	return nil
+}
+
 // SendJob to the trigger queue
 // returns JobID, error
 func (j *JobPayload) SendJob() (int, error) {
+	j.specialJobSetup()
 	url := os.Getenv("TRIGGER_QUEUE_API") + "/add"
 	payload, _ := json.Marshal(j)
 
@@ -186,6 +201,13 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 		return false, errors.New("invalid step")
 	}
 
+	// Clear past step jobs
+	var err error
+	CurrentRecipe.JobIDs, err = CurrentRecipe.clearJobs()
+	if err != nil {
+		log.Error(err.Error())
+	}
+
 	// Setup triggers/jobs
 	jobs := make([]*JobPayload, 0)
 
@@ -231,7 +253,6 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 	}
 
 	// Update self
-	r.JobIDs = make([]int, 0)
 	if step > 0 {
 		r.PrevStep = r.recipe.Steps[step-1]
 	} else {
