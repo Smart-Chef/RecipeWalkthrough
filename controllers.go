@@ -108,11 +108,16 @@ var GotToNStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		msg = "Go forward " + strconv.Itoa(req.IncrementSteps) + " step(s)"
 	}
 
+	stepInfo := ""
+
+	if CurrentRecipe.CurrentStep != nil {
+		stepInfo = CurrentRecipe.CurrentStep.Data.String
+	}
 	json.NewEncoder(w).Encode(&Response{
 		Status:     "success",
 		RecipeDone: recipeDone,
 		Msg:        msg,
-		StepInfo:   CurrentRecipe.CurrentStep.Data.String,
+		StepInfo:   stepInfo,
 	})
 })
 

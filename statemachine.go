@@ -151,8 +151,8 @@ func (r *RecipeInfo) clear() error {
 	r.PrevStep = nil
 
 	log.Info("Clearing Jobs")
-	nonSuccessfulIDs, err := r.clearJobs()
-	r.JobIDs = nonSuccessfulIDs
+	_, err := r.clearJobs()
+	r.JobIDs = make([]int, 0)
 	return err
 }
 
@@ -166,7 +166,6 @@ func (r *RecipeInfo) clearJobs() ([]int, error) {
 		if err != nil || !success {
 			erred = true
 			nonSuccessfulIDs = append(nonSuccessfulIDs, jobID)
-			log.Errorf("Could not clear job %d", jobID)
 			if err != nil {
 				log.Error(err)
 			}
@@ -203,7 +202,8 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 
 	// Clear past step jobs
 	var err error
-	CurrentRecipe.JobIDs, err = CurrentRecipe.clearJobs()
+	_, err = CurrentRecipe.clearJobs()
+	CurrentRecipe.JobIDs = make([]int, 0)
 	if err != nil {
 		log.Error(err.Error())
 	}
