@@ -15,7 +15,6 @@ var INVALIDSTATUS = "INVALID"
 
 // handleBadRequest for the application
 func handleBadRequest(w http.ResponseWriter, msgAndArgs ...interface{}) {
-	//log.Warn(msgAndArgs)
 	w.WriteHeader(http.StatusBadRequest)
 	json.NewEncoder(w).Encode(&struct {
 		Status string      `json:"status"`
@@ -33,6 +32,7 @@ var NewRecipe = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}
 	type Response struct {
 		Status string `json:"status"`
+		Msg    string `json:"msg"`
 	}
 
 	req := &Request{}
@@ -56,9 +56,11 @@ var NewRecipe = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(&Response{
 		Status: "success",
+		Msg:    CurrentRecipe.CurrentStep.Data.String,
 	})
 })
 
+// Get all info about the CurrentStep, NextStep, and PrevStep
 var GetCurrentStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(CurrentRecipe)
@@ -69,10 +71,13 @@ var GetCurrentStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Reques
 	}
 })
 
+// Increment N steps forward
+// Payload: {"increment_steps": 1, "send_to_nlp": DEFAULT_FALSE}
 var GotToNStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	type Request struct {
-		IncrementSteps int `json:"increment_steps"`
+		IncrementSteps int  `json:"increment_steps"`
+		SendToNLP      bool `json:"send_to_nlp"`
 	}
 	type Response struct {
 		Status     string `json:"status"`
@@ -90,6 +95,7 @@ var GotToNStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handleBadRequest(w, err.Error())
 		return
 	}
+	log.Warn(req.SendToNLP)
 
 	recipeDone, err := CurrentRecipe.incrementNSteps(req.IncrementSteps)
 
@@ -98,6 +104,13 @@ var GotToNStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Error(err.Error())
 		handleBadRequest(w, err.Error())
 		return
+	}
+
+	if req.SendToNLP {
+		err = CurrentRecipe.SayCurrentStep()
+		if err != nil {
+			log.Error(err.Error())
+		}
 	}
 
 	var msg string

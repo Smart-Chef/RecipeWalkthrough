@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"recipe-walkthrough/models"
@@ -136,9 +137,14 @@ func (r *RecipeInfo) newRecipe(id int) error {
 	r.recipe = recipe
 	done, err := r.initStep(0)
 
+	if err != nil {
+		return err
+	}
+
 	if done {
 		log.Warn("Just setup a newRecipe that is already done")
 	}
+	//err = r.SayCurrentStep()
 	return err
 }
 
@@ -268,4 +274,25 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 		r.NextStep = nil
 	}
 	return false, nil
+}
+
+// Send the current step info to the NLP to say to the user
+func (r *RecipeInfo) SayCurrentStep() error {
+	url := os.Getenv("NLP_API") + "/send_message/" + r.CurrentStep.Data.String
+	log.Infof("Sending to NLP: %s", r.CurrentStep.Data.String)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	log.Infof("NLP Response: %s", body)
+	return err
 }
