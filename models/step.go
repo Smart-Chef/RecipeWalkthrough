@@ -20,7 +20,7 @@ type StepIngredient struct {
 	ID         null.Int    `json:"id"`
 	Recipe     *Recipe     `json:"recipe,omitempty"`
 	Ingredient *Ingredient `json:"ingredient,omitempty"`
-	Quantity   null.Int    `json:"quantity"`
+	Quantity   null.Float  `json:"quantity"`
 	Unit       null.String `json:"unit"`
 	CreatedAt  null.Time   `json:"created_at"`
 }

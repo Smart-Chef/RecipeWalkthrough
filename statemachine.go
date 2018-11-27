@@ -16,7 +16,7 @@ import (
 
 type RecipeInfo struct {
 	ID          null.Int       `json:"recipe_id"`
-	JobIDs      []int          `json:"job_ids"`
+	JobIDs      []int64          `json:"job_ids"`
 	CurrentStep *models.Step   `json:"current_step"`
 	PrevStep    *models.Step   `json:"prev_step"`
 	NextStep    *models.Step   `json:"next_step"`
@@ -34,15 +34,15 @@ type JobPayload struct {
 
 type JobResponse struct {
 	Status string `json:"status"`
-	JobID  int    `json:"job_id"`
+	JobID  int64    `json:"job_id"`
 }
 
 type ClearJob struct {
-	ID int `json:"id"`
+	ID int64 `json:"id"`
 }
 
 type ClearJobResponse struct {
-	ID int `json:"id"`
+	ID int64 `json:"id"`
 }
 
 // Any special setup for triggers/actions before sending to trigger-queue
@@ -60,7 +60,7 @@ func (j *JobPayload) specialJobSetup() error {
 
 // SendJob to the trigger queue
 // returns JobID, error
-func (j *JobPayload) SendJob() (int, error) {
+func (j *JobPayload) SendJob() (int64, error) {
 	j.specialJobSetup()
 	url := os.Getenv("TRIGGER_QUEUE_API") + "/add"
 	payload, _ := json.Marshal(j)
@@ -89,7 +89,7 @@ func (j *JobPayload) SendJob() (int, error) {
 }
 
 func (j *ClearJob) clear() (bool, error) {
-	url := os.Getenv("TRIGGER_QUEUE_API") + "/delete/walk-through/" + strconv.Itoa(j.ID)
+	url := os.Getenv("TRIGGER_QUEUE_API") + "/delete/walk-through/" + strconv.FormatInt(j.ID, 10)
 	req, _ := http.NewRequest("DELETE", url, nil)
 	res, _ := http.DefaultClient.Do(req)
 	defer res.Body.Close()
@@ -127,7 +127,7 @@ func (r *RecipeInfo) newRecipe(id int) error {
 	r.CurrentStep = recipe.Steps[0]
 	r.PrevStep = nil
 	r.NextStep = nil
-	r.JobIDs = make([]int, 0)
+	r.JobIDs = make([]int64, 0)
 
 	if r.TotalSteps > 1 {
 		r.NextStep = recipe.Steps[1]
@@ -152,13 +152,13 @@ func (r *RecipeInfo) clear() error {
 
 	log.Info("Clearing Jobs")
 	_, err := r.clearJobs()
-	r.JobIDs = make([]int, 0)
+	r.JobIDs = make([]int64, 0)
 	return err
 }
 
-func (r *RecipeInfo) clearJobs() ([]int, error) {
+func (r *RecipeInfo) clearJobs() ([]int64, error) {
 	// Clear the jobs from the trigger queue
-	nonSuccessfulIDs := make([]int, 0)
+	nonSuccessfulIDs := make([]int64, 0)
 	erred := false
 	for _, jobID := range CurrentRecipe.JobIDs {
 		j := &ClearJob{ID: jobID}
@@ -174,7 +174,7 @@ func (r *RecipeInfo) clearJobs() ([]int, error) {
 	if erred {
 		msg := "could not clear jobs ["
 		for i, id := range nonSuccessfulIDs {
-			msg += strconv.Itoa(id)
+			msg += strconv.FormatInt(id, 10)
 			if i != len(nonSuccessfulIDs)-1 {
 				msg += ", "
 			} else {
@@ -203,7 +203,7 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 	// Clear past step jobs
 	var err error
 	_, err = CurrentRecipe.clearJobs()
-	CurrentRecipe.JobIDs = make([]int, 0)
+	CurrentRecipe.JobIDs = make([]int64, 0)
 	if err != nil {
 		log.Error(err.Error())
 	}
@@ -242,11 +242,12 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 
 	// Send the jobs to the trigger-queue
 	for _, j := range jobs {
-		var id int
+		var id int64
 		var err error
 		id, err = j.SendJob()
 		if err != nil {
 			log.Error("error sending job %+v", j)
+			log.Error(err.Error())
 		} else {
 			r.JobIDs = append(r.JobIDs, id)
 		}

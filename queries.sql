@@ -86,7 +86,8 @@ LEFT JOIN Trigger on Trigger_Group.id = Trigger.trigger_group_fk
 LEFT JOIN Trigger_Type on Trigger.tigger_type_fk = Trigger_Type.id
 LEFT JOIN Step_Utensil on Step.id = Step_Utensil.step_fk
 LEFT JOIN Utensil U on Step_Utensil.utensil_fk = U.id
-WHERE Recipe.id = ?;
+WHERE Recipe.id = ?
+ORDER BY Step.step_number;
 
 --name: get-all-ingredients
 SELECT id, name, created_at FROM Ingredient;
