@@ -256,6 +256,7 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 		id, err = j.SendJob()
 		if err != nil {
 			log.Error("error sending job %+v", j)
+			log.Error(err.Error())
 		} else {
 			r.JobIDs = append(r.JobIDs, id)
 		}
