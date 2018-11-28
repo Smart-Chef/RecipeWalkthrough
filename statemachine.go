@@ -17,7 +17,7 @@ import (
 
 type RecipeInfo struct {
 	ID          null.Int       `json:"recipe_id"`
-	JobIDs      []int          `json:"job_ids"`
+	JobIDs      []int64        `json:"job_ids"`
 	CurrentStep *models.Step   `json:"current_step"`
 	PrevStep    *models.Step   `json:"prev_step"`
 	NextStep    *models.Step   `json:"next_step"`
@@ -35,15 +35,15 @@ type JobPayload struct {
 
 type JobResponse struct {
 	Status string `json:"status"`
-	JobID  int    `json:"job_id"`
+	JobID  int64  `json:"job_id"`
 }
 
 type ClearJob struct {
-	ID int `json:"id"`
+	ID int64 `json:"id"`
 }
 
 type ClearJobResponse struct {
-	ID int `json:"id"`
+	ID int64 `json:"id"`
 }
 
 // Any special setup for triggers/actions before sending to trigger-queue
@@ -61,7 +61,7 @@ func (j *JobPayload) specialJobSetup() error {
 
 // SendJob to the trigger queue
 // returns JobID, error
-func (j *JobPayload) SendJob() (int, error) {
+func (j *JobPayload) SendJob() (int64, error) {
 	j.specialJobSetup()
 	url := os.Getenv("TRIGGER_QUEUE_API") + "/add"
 	payload, _ := json.Marshal(j)
@@ -90,7 +90,7 @@ func (j *JobPayload) SendJob() (int, error) {
 }
 
 func (j *ClearJob) clear() (bool, error) {
-	url := os.Getenv("TRIGGER_QUEUE_API") + "/delete/walk-through/" + strconv.Itoa(j.ID)
+	url := os.Getenv("TRIGGER_QUEUE_API") + "/delete/walk-through/" + strconv.FormatInt(j.ID, 10)
 	req, _ := http.NewRequest("DELETE", url, nil)
 	res, _ := http.DefaultClient.Do(req)
 	defer res.Body.Close()
@@ -110,6 +110,10 @@ func (r *RecipeInfo) incrementNSteps(n int) (bool, error) {
 	if r.CurrentStep == nil {
 		return false, errors.New("cannot increment step: no recipe currently active")
 	}
+	// Execute jobs if we are incrementing by one step
+	if n == 1 && len(r.JobIDs) > 0 {
+		r.executeJobs()
+	}
 	log.Info("Incrementing " + strconv.Itoa(n) + " step(s)")
 	return r.initStep(int(r.CurrentStep.StepNumber.Int64 + int64(n-1)))
 }
@@ -128,7 +132,7 @@ func (r *RecipeInfo) newRecipe(id int) error {
 	r.CurrentStep = recipe.Steps[0]
 	r.PrevStep = nil
 	r.NextStep = nil
-	r.JobIDs = make([]int, 0)
+	r.JobIDs = make([]int64, 0)
 
 	if r.TotalSteps > 1 {
 		r.NextStep = recipe.Steps[1]
@@ -144,7 +148,6 @@ func (r *RecipeInfo) newRecipe(id int) error {
 	if done {
 		log.Warn("Just setup a newRecipe that is already done")
 	}
-	//err = r.SayCurrentStep()
 	return err
 }
 
@@ -158,13 +161,13 @@ func (r *RecipeInfo) clear() error {
 
 	log.Info("Clearing Jobs")
 	_, err := r.clearJobs()
-	r.JobIDs = make([]int, 0)
+	r.JobIDs = make([]int64, 0)
 	return err
 }
 
-func (r *RecipeInfo) clearJobs() ([]int, error) {
+func (r *RecipeInfo) clearJobs() ([]int64, error) {
 	// Clear the jobs from the trigger queue
-	nonSuccessfulIDs := make([]int, 0)
+	nonSuccessfulIDs := make([]int64, 0)
 	erred := false
 	for _, jobID := range CurrentRecipe.JobIDs {
 		j := &ClearJob{ID: jobID}
@@ -180,7 +183,7 @@ func (r *RecipeInfo) clearJobs() ([]int, error) {
 	if erred {
 		msg := "could not clear jobs ["
 		for i, id := range nonSuccessfulIDs {
-			msg += strconv.Itoa(id)
+			msg += strconv.FormatInt(id, 10)
 			if i != len(nonSuccessfulIDs)-1 {
 				msg += ", "
 			} else {
@@ -209,7 +212,7 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 	// Clear past step jobs
 	var err error
 	_, err = CurrentRecipe.clearJobs()
-	CurrentRecipe.JobIDs = make([]int, 0)
+	CurrentRecipe.JobIDs = make([]int64, 0)
 	if err != nil {
 		log.Error(err.Error())
 	}
@@ -248,7 +251,7 @@ func (r *RecipeInfo) initStep(step int) (bool, error) {
 
 	// Send the jobs to the trigger-queue
 	for _, j := range jobs {
-		var id int
+		var id int64
 		var err error
 		id, err = j.SendJob()
 		if err != nil {
@@ -294,4 +297,24 @@ func (r *RecipeInfo) SayCurrentStep() error {
 	body, err := ioutil.ReadAll(res.Body)
 	log.Infof("NLP Response: %s", body)
 	return err
+}
+
+func (r *RecipeInfo) executeJobs() {
+	baseUrl := os.Getenv("TRIGGER_QUEUE_API") + "/execute/walk-through/"
+
+	for _, id := range r.JobIDs {
+		url := baseUrl + strconv.FormatInt(id, 10)
+		req, _ := http.NewRequest("POST", url, nil)
+		res, err := http.DefaultClient.Do(req)
+
+		defer res.Body.Close()
+		body, err := ioutil.ReadAll(res.Body)
+
+		if err != nil {
+			log.Error("error executing job %d", id)
+		} else {
+			log.Infof("Trigger Queue Job %d execute response: %s", id, body)
+		}
+	}
+	r.JobIDs = make([]int64, 0)
 }
