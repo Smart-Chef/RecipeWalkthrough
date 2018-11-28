@@ -106,13 +106,15 @@ func (j *ClearJob) clear() (bool, error) {
 
 // incrementNSteps forwards
 // returns recipeCompleted, error
-func (r *RecipeInfo) incrementNSteps(n int) (bool, error) {
+func (r *RecipeInfo) incrementNSteps(n int, isAction bool) (bool, error) {
 	if r.CurrentStep == nil {
 		return false, errors.New("cannot increment step: no recipe currently active")
 	}
 	// Execute jobs if we are incrementing by one step
-	if n == 1 && len(r.JobIDs) > 0 {
+	if n == 1 && len(r.JobIDs) > 0 && !isAction {
+		log.Info("Execute all current active jobs")
 		r.executeJobs()
+		return false, nil
 	}
 	log.Info("Incrementing " + strconv.Itoa(n) + " step(s)")
 	return r.initStep(int(r.CurrentStep.StepNumber.Int64 + int64(n-1)))
@@ -301,12 +303,15 @@ func (r *RecipeInfo) SayCurrentStep() error {
 }
 
 func (r *RecipeInfo) executeJobs() {
-	baseUrl := os.Getenv("TRIGGER_QUEUE_API") + "/execute/walk-through/"
-
-	for _, id := range r.JobIDs {
-		url := baseUrl + strconv.FormatInt(id, 10)
+	baseURL := os.Getenv("TRIGGER_QUEUE_API") + "/execute/walk-through/"
+	ids := r.JobIDs
+	r.JobIDs = make([]int64, 0)
+	for _, id := range ids {
+		log.Info("Preparing to execute job %d", id)
+		url := baseURL + strconv.FormatInt(id, 10)
 		req, _ := http.NewRequest("POST", url, nil)
 		res, err := http.DefaultClient.Do(req)
+		log.Info("Executed job %d", id)
 
 		defer res.Body.Close()
 		body, err := ioutil.ReadAll(res.Body)
@@ -317,5 +322,4 @@ func (r *RecipeInfo) executeJobs() {
 			log.Infof("Trigger Queue Job %d execute response: %s", id, body)
 		}
 	}
-	r.JobIDs = make([]int64, 0)
 }

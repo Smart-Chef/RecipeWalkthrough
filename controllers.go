@@ -78,6 +78,7 @@ var GotToNStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	type Request struct {
 		IncrementSteps int  `json:"increment_steps"`
 		SendToNLP      bool `json:"send_to_nlp"`
+		FromAction     bool `json:"from_action"`
 	}
 	type Response struct {
 		Status     string `json:"status"`
@@ -97,7 +98,7 @@ var GotToNStep = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Warn(req.SendToNLP)
 
-	recipeDone, err := CurrentRecipe.incrementNSteps(req.IncrementSteps)
+	recipeDone, err := CurrentRecipe.incrementNSteps(req.IncrementSteps, req.FromAction)
 
 	if err != nil {
 		log.Errorf("Error incrementing %d steps", req.IncrementSteps)
